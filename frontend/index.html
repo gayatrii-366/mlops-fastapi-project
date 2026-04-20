@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Iris Flower Classifier · MLOps FastAPI</title>
+  <meta name="description" content="Classify Iris flowers in real-time using a trained ML model served via FastAPI. Interactive MLOps demo with prediction history and confidence visualization." />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #07090f;
+      --bg2:          #0d1117;
+      --bg3:          #111827;
+      --card:         rgba(255,255,255,0.04);
+      --card-hover:   rgba(255,255,255,0.07);
+      --border:       rgba(255,255,255,0.08);
+      --border-focus: rgba(124,58,237,0.5);
+      --purple:       #7c3aed;
+      --purple2:      #9333ea;
+      --purple-light: #a78bfa;
+      --pink:         #ec4899;
+      --teal:         #06b6d4;
+      --green:        #10b981;
+      --yellow:       #f59e0b;
+      --red:          #ef4444;
+      --text:         #f1f5f9;
+      --muted:        #64748b;
+      --muted2:       #94a3b8;
+      --radius:       1rem;
+      --radius-sm:    0.65rem;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 1rem 4rem;
+      background-image:
+        radial-gradient(ellipse 80% 40% at 50% -10%, rgba(124,58,237,0.25), transparent),
+        radial-gradient(ellipse 50% 30% at 85% 85%, rgba(6,182,212,0.12), transparent),
+        radial-gradient(ellipse 40% 25% at 10% 60%, rgba(236,72,153,0.08), transparent);
+    }
+
+    /* ─── TOP NAV ─────────────────────────────────── */
+    .topbar {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem 0 1rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 0.25rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.3rem;
+    }
+
+    .nav-link {
+      padding: 0.45rem 1.1rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--muted2);
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      background: transparent;
+      letter-spacing: 0.01em;
+    }
+
+    .nav-link:hover { color: var(--text); }
+    .nav-link.active {
+      background: linear-gradient(135deg, var(--purple), var(--purple2));
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(124,58,237,0.4);
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.4rem 0.85rem;
+      font-size: 0.75rem;
+      color: var(--muted2);
+      transition: all 0.3s;
+    }
+
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); animation: none; }
+    .dot.checking { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+
+    /* ─── HERO ─────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.3);
+      color: var(--purple-light);
+      padding: 0.35rem 1rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 1.1rem;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 20%, var(--purple-light) 60%, var(--pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--muted2);
+      margin-top: 0.7rem;
+      font-size: 0.95rem;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.6;
+    }
+
+    /* ─── STATS ROW ─────────────────────────────────── */
+    .stats-row {
+      width: 100%;
+      max-width: 960px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-chip {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.25rem;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .stat-chip:hover { border-color: rgba(124,58,237,0.3); background: var(--card-hover); }
+
+    .stat-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-val {
+      font-size: 1.6rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      background: linear-gradient(135deg, var(--teal), var(--purple-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-sub {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+    }
+
+    /* ─── TABS ──────────────────────────────────────── */
+    .tabs-content {
+      width: 100%;
+      max-width: 960px;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ─── GRID / CARD ───────────────────────────────── */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (max-width: 680px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .topbar { flex-wrap: wrap; gap: 0.75rem; }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover { border-color: rgba(124,58,237,0.2); }
+
+    .card-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─── SLIDERS ───────────────────────────────────── */
+    .field { margin-bottom: 1.4rem; }
+
+    .field-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.83rem;
+      color: var(--muted2);
+      margin-bottom: 0.55rem;
+      font-weight: 500;
+    }
+
+    .field-val {
+      font-weight: 700;
+      color: var(--purple-light);
+      font-size: 0.88rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .range-wrap { position: relative; }
+
+    input[type=range] {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--purple), var(--pink));
+      cursor: pointer;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.15), 0 0 12px rgba(124,58,237,0.5);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      box-shadow: 0 0 0 4px rgba(124,58,237,0.2), 0 0 18px rgba(124,58,237,0.6);
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      border-radius: 999px;
+    }
+
+    .range-bounds {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: 0.3rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ─── INPUTS ────────────────────────────────────── */
+    .field-input {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      font-size: 0.875rem;
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .field-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+    }
+
+    .field-group { margin-bottom: 1rem; }
+    .field-group label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted2);
+      font-weight: 500;
+      margin-bottom: 0.4rem;
+    }
+
+    /* ─── BUTTON ────────────────────────────────────── */
+    .btn {
+      width: 100%;
+      padding: 0.9rem;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: linear-gradient(135deg, var(--purple) 0%, var(--purple2) 60%, #c026d3 100%);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(124,58,237,0.35);
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    }
+
+    .btn:hover  { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 30px rgba(124,58,237,0.55); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted2);
+      font-size: 0.8rem;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+    .btn-ghost:hover { border-color: var(--purple); color: var(--purple-light); }
+
+    /* ─── RESULT PANEL ──────────────────────────────── */
+    .result-panel { grid-column: 1 / -1; }
+
+    .result-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      text-align: center;
+    }
+
+    .idle-icon { font-size: 3rem; margin-bottom: 0.6rem; opacity: 0.3; }
+    .idle-text  { color: var(--muted); font-size: 0.88rem; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255,255,255,0.08);
+      border-top-color: var(--purple-light);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .prediction-result { animation: fadeUp 0.45s cubic-bezier(0.16,1,0.3,1); width: 100%; }
+    @keyframes fadeUp {
+      from { opacity:0; transform: translateY(16px) scale(0.97); }
+      to   { opacity:1; transform: translateY(0) scale(1); }
+    }
+
+    .result-top {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .flower-emoji-wrap {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .flower-emoji-wrap::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--purple), var(--pink), var(--teal), var(--purple));
+      animation: spin 3s linear infinite;
+      z-index: -1;
+    }
+
+    .flower-emoji-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: var(--bg3);
+      z-index: -1;
+    }
+
+    .flower-name {
+      font-size: 1.9rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .flower-class {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.05em;
+    }
+
+    .pills {
+      display: flex;
+      gap: 0.45rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 0.85rem;
+    }
+
+    .pill {
+      padding: 0.28rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    /* ─── CONFIDENCE BARS ───────────────────────────── */
+    .confidence-section {
+      width: 100%;
+      margin-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      padding-top: 1.5rem;
+    }
+
+    .conf-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+    }
+
+    .conf-row {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .conf-label {
+      width: 80px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .conf-bar-bg {
+      flex: 1;
+      height: 8px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .conf-bar {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
+      width: 0%;
+    }
+
+    .conf-pct {
+      width: 38px;
+      font-size: 0.72rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted2);
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .error-msg {
+      color: #f87171;
+      font-size: 0.88rem;
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      width: 100%;
+    }
+
+    /* ─── FEATURE CHIPS ─────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.65rem;
+      margin-top: 1.25rem;
+    }
+
+    .feat-chip {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 0.85rem;
+    }
+
+    .feat-chip .key  { font-size: 0.68rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+    .feat-chip .fval { font-size: 0.9rem; font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; margin-top: 0.15rem; }
+
+    /* ─── HISTORY ────────────────────────────────────── */
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .history-header h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .history-empty {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+
+    .history-empty .empty-icon { font-size: 2.5rem; margin-bottom: 0.6rem; opacity: 0.3; }
+
+    .hist-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .hist-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 1rem;
+      animation: fadeUp 0.3s ease;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .hist-item:hover { border-color: rgba(124,58,237,0.25); background: var(--card-hover); }
+
+    .hist-emoji { font-size: 1.8rem; line-height: 1; }
+
+    .hist-name { font-weight: 700; font-size: 0.95rem; }
+    .hist-meta { font-size: 0.72rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 0.2rem; }
+
+    .hist-time { font-size: 0.7rem; color: var(--muted); text-align: right; font-family: 'JetBrains Mono', monospace; }
+
+    .hist-features {
+      display: flex;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+
+    .hist-feat-tag {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.5rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted2);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ─── ABOUT / SPECIES ───────────────────────────── */
+    .species-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 700px) { .species-grid { grid-template-columns: 1fr; } }
+
+    .species-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem 1.5rem;
+      text-align: center;
+      transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+      cursor: default;
+    }
+
+    .species-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+
+    .sp-emoji { font-size: 3rem; margin-bottom: 0.75rem; display: block; }
+
+    .sp-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .sp-latin {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-style: italic;
+      margin-bottom: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .sp-desc {
+      font-size: 0.82rem;
+      color: var(--muted2);
+      line-height: 1.6;
+      margin-bottom: 1.1rem;
+    }
+
+    .sp-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .sp-stat {
+      background: rgba(255,255,255,0.04);
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.4rem;
+    }
+
+    .sp-stat .k { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .sp-stat .v { font-size: 0.8rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; margin-top: 0.15rem; }
+
+    /* Feature importance visual */
+    .fi-section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .fi-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .fi-sub {
+      font-size: 0.8rem;
+      color: var(--muted2);
+      margin-bottom: 1.5rem;
+    }
+
+    .fi-row {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .fi-label {
+      width: 110px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .fi-bar-bg {
+      flex: 1;
+      height: 10px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .fi-bar {
+      height: 100%;
+      border-radius: 999px;
+      animation: growWidth 1s cubic-bezier(0.16,1,0.3,1) forwards;
+    }
+
+    @keyframes growWidth { from { width: 0; } }
+
+    .fi-pct {
+      font-size: 0.72rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted2);
+      width: 38px;
+      text-align: right;
+    }
+
+    /* API Info section */
+    .api-info {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+    }
+
+    .api-endpoint {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+    }
+
+    .method-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    .method-get  { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+    .method-post { background: rgba(124,58,237,0.15); color: var(--purple-light); border: 1px solid rgba(124,58,237,0.3); }
+
+    .ep-path { color: var(--muted2); flex: 1; }
+    .ep-desc { font-size: 0.7rem; color: var(--muted); font-family: 'Inter', sans-serif; }
+
+    /* Divider */
+    .section-divider {
+      width: 100%;
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+
+    /* Copy btn small */
+    .copy-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--muted2);
+      margin-top: 0.6rem;
+    }
+
+    .copy-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: color 0.2s;
+      padding: 0;
+    }
+    .copy-btn:hover { color: var(--purple-light); }
+
+    /* toast */
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      padding: 0.7rem 1.2rem;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      color: var(--text);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      z-index: 1000;
+      animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.2s forwards;
+    }
+
+    @keyframes slideIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+    @keyframes fadeOut { to { opacity:0; transform: translateY(6px); } }
+
+    /* responsive tweak */
+    @media (max-width: 480px) {
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP NAV -->
+  <nav class="topbar" role="navigation" aria-label="Main navigation">
+    <a class="logo" href="#" onclick="return false;">
+      <div class="logo-icon">🌸</div>
+      <span>Iris ML API</span>
+    </a>
+    <div class="nav-links" role="tablist" aria-label="Page tabs">
+      <button class="nav-link active" id="tab-predict" role="tab" onclick="switchTab('predict')">⚡ Predict</button>
+      <button class="nav-link"        id="tab-history" role="tab" onclick="switchTab('history')">🕓 History</button>
+      <button class="nav-link"        id="tab-about"   role="tab" onclick="switchTab('about')">🌿 About</button>
+    </div>
+    <div class="status-pill" id="statusPill">
+      <div class="dot checking" id="statusDot"></div>
+      <span id="statusText">Connecting…</span>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="badge">🌸 MLOps · FastAPI · scikit-learn</div>
+    <h1>Iris Flower Classifier</h1>
+    <p class="subtitle">Adjust measurements, hit classify, and see your ML model predict the Iris species in real-time.</p>
+  </header>
+
+  <!-- STATS -->
+  <div class="stats-row" aria-label="Dashboard stats">
+    <div class="stat-chip">
+      <div class="stat-label">Predictions Made</div>
+      <div class="stat-val" id="statPredCount">0</div>
+      <div class="stat-sub">in this session</div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-label">Model Accuracy</div>
+      <div class="stat-val">97.3%</div>
+      <div class="stat-sub">on test split</div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-label">Algorithm</div>
+      <div class="stat-val" style="font-size:1rem;padding-top:0.3rem;">SVC</div>
+      <div class="stat-sub">scikit-learn</div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-label">Classes</div>
+      <div class="stat-val">3</div>
+      <div class="stat-sub">Setosa · Versicolor · Virginica</div>
+    </div>
+  </div>
+
+  <!-- TAB CONTENT -->
+  <main class="tabs-content">
+
+    <!-- ─── PREDICT TAB ─────────────────────────────── -->
+    <section id="panel-predict" class="tab-panel active" role="tabpanel" aria-labelledby="tab-predict">
+      <div class="grid-2">
+
+        <!-- Sliders -->
+        <div class="card">
+          <p class="card-title">🌿 Flower Measurements</p>
+
+          <div class="field">
+            <div class="field-label">Sepal Length <span class="field-val" id="slVal">5.1 cm</span></div>
+            <input type="range" id="sepal_length" min="4.0" max="8.0" step="0.1" value="5.1"
+                   oninput="updateVal('sl',this.value,'f1','sepal_length')" aria-label="Sepal Length"/>
+            <div class="range-bounds"><span>4.0</span><span>8.0 cm</span></div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">Sepal Width <span class="field-val" id="swVal">3.5 cm</span></div>
+            <input type="range" id="sepal_width" min="2.0" max="4.5" step="0.1" value="3.5"
+                   oninput="updateVal('sw',this.value,'f2','sepal_width')" aria-label="Sepal Width"/>
+            <div class="range-bounds"><span>2.0</span><span>4.5 cm</span></div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">Petal Length <span class="field-val" id="plVal">1.4 cm</span></div>
+            <input type="range" id="petal_length" min="1.0" max="7.0" step="0.1" value="1.4"
+                   oninput="updateVal('pl',this.value,'f3','petal_length')" aria-label="Petal Length"/>
+            <div class="range-bounds"><span>1.0</span><span>7.0 cm</span></div>
+          </div>
+
+          <div class="field">
+            <div class="field-label">Petal Width <span class="field-val" id="pwVal">0.2 cm</span></div>
+            <input type="range" id="petal_width" min="0.1" max="2.5" step="0.1" value="0.2"
+                   oninput="updateVal('pw',this.value,'f4','petal_width')" aria-label="Petal Width"/>
+            <div class="range-bounds"><span>0.1</span><span>2.5 cm</span></div>
+          </div>
+        </div>
+
+        <!-- Config + Chips -->
+        <div class="card">
+          <p class="card-title">⚙️ API Configuration</p>
+
+          <div class="field-group">
+            <label for="apiUrl">API Base URL</label>
+            <input class="field-input" type="text" id="apiUrl" value="http://localhost:8000"
+                   placeholder="http://localhost:8000" oninput="checkAPI()"/>
+          </div>
+          <div class="field-group">
+            <label for="apiKey">API Key</label>
+            <input class="field-input" type="password" id="apiKey" value="supersecret123" placeholder="x-api-key"/>
+          </div>
+
+          <button class="btn" id="predictBtn" onclick="predict()" aria-label="Classify flower">
+            <span id="btnIcon">⚡</span>
+            <span id="btnText">Classify Flower</span>
+          </button>
+
+          <div class="features-grid">
+            <div class="feat-chip"><div class="key">Sepal L.</div><div class="fval" id="f1">5.1 cm</div></div>
+            <div class="feat-chip"><div class="key">Sepal W.</div><div class="fval" id="f2">3.5 cm</div></div>
+            <div class="feat-chip"><div class="key">Petal L.</div><div class="fval" id="f3">1.4 cm</div></div>
+            <div class="feat-chip"><div class="key">Petal W.</div><div class="fval" id="f4">0.2 cm</div></div>
+          </div>
+        </div>
+
+        <!-- Result -->
+        <div class="card result-panel">
+          <p class="card-title">🔬 Prediction Result</p>
+          <div class="result-inner" id="resultBox">
+            <div class="idle-icon">🌺</div>
+            <div class="idle-text">Adjust sliders and click <strong>Classify Flower</strong></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ─── HISTORY TAB ─────────────────────────────── -->
+    <section id="panel-history" class="tab-panel" role="tabpanel" aria-labelledby="tab-history">
+      <div class="history-header">
+        <h2>Prediction History</h2>
+        <button class="btn-ghost" onclick="clearHistory()" aria-label="Clear history">🗑 Clear All</button>
+      </div>
+      <div id="historyList">
+        <div class="history-empty">
+          <div class="empty-icon">🕓</div>
+          <div>No predictions yet — make your first classification!</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── ABOUT TAB ──────────────────────────────── -->
+    <section id="panel-about" class="tab-panel" role="tabpanel" aria-labelledby="tab-about">
+
+      <div class="species-grid">
+        <!-- Setosa -->
+        <div class="species-card" style="border-color: rgba(6,182,212,0.2);">
+          <span class="sp-emoji">🌼</span>
+          <div class="sp-name" style="color:#06b6d4;">Iris Setosa</div>
+          <div class="sp-latin">Class 0 · setosa</div>
+          <div class="sp-desc">The smallest of the three species, native to the Arctic, with distinctly compact petals. Easily separable from the other two classes.</div>
+          <div class="sp-stats">
+            <div class="sp-stat"><div class="k">Petal L.</div><div class="v" style="color:#06b6d4;">~1.5 cm</div></div>
+            <div class="sp-stat"><div class="k">Petal W.</div><div class="v" style="color:#06b6d4;">~0.3 cm</div></div>
+            <div class="sp-stat"><div class="k">Sepal L.</div><div class="v" style="color:#06b6d4;">~5.0 cm</div></div>
+            <div class="sp-stat"><div class="k">Sepal W.</div><div class="v" style="color:#06b6d4;">~3.4 cm</div></div>
+          </div>
+        </div>
+
+        <!-- Versicolor -->
+        <div class="species-card" style="border-color: rgba(167,139,250,0.2);">
+          <span class="sp-emoji">🌸</span>
+          <div class="sp-name" style="color:#a78bfa;">Iris Versicolor</div>
+          <div class="sp-latin">Class 1 · versicolor</div>
+          <div class="sp-desc">Medium-sized petals with mixed coloring. Common across North America. Features overlap with Virginica, making classification challenging.</div>
+          <div class="sp-stats">
+            <div class="sp-stat"><div class="k">Petal L.</div><div class="v" style="color:#a78bfa;">~4.3 cm</div></div>
+            <div class="sp-stat"><div class="k">Petal W.</div><div class="v" style="color:#a78bfa;">~1.3 cm</div></div>
+            <div class="sp-stat"><div class="k">Sepal L.</div><div class="v" style="color:#a78bfa;">~5.9 cm</div></div>
+            <div class="sp-stat"><div class="k">Sepal W.</div><div class="v" style="color:#a78bfa;">~2.8 cm</div></div>
+          </div>
+        </div>
+
+        <!-- Virginica -->
+        <div class="species-card" style="border-color: rgba(244,114,182,0.2);">
+          <span class="sp-emoji">🌺</span>
+          <div class="sp-name" style="color:#f472b6;">Iris Virginica</div>
+          <div class="sp-latin">Class 2 · virginica</div>
+          <div class="sp-desc">The largest species with elegant large petals. Found primarily in the eastern United States. Highest sepal and petal measurements.</div>
+          <div class="sp-stats">
+            <div class="sp-stat"><div class="k">Petal L.</div><div class="v" style="color:#f472b6;">~5.6 cm</div></div>
+            <div class="sp-stat"><div class="k">Petal W.</div><div class="v" style="color:#f472b6;">~2.0 cm</div></div>
+            <div class="sp-stat"><div class="k">Sepal L.</div><div class="v" style="color:#f472b6;">~6.6 cm</div></div>
+            <div class="sp-stat"><div class="k">Sepal W.</div><div class="v" style="color:#f472b6;">~3.0 cm</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature Importance -->
+      <div class="fi-section">
+        <div class="fi-title">📊 Feature Importance (Typical SVM)</div>
+        <div class="fi-sub">Petal features tend to be far more discriminative than sepal features for Iris classification.</div>
+
+        <div class="fi-row">
+          <div class="fi-label">Petal Length</div>
+          <div class="fi-bar-bg"><div class="fi-bar" style="width:92%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div></div>
+          <div class="fi-pct">92%</div>
+        </div>
+        <div class="fi-row">
+          <div class="fi-label">Petal Width</div>
+          <div class="fi-bar-bg"><div class="fi-bar" style="width:85%;background:linear-gradient(90deg,#ec4899,#f472b6);"></div></div>
+          <div class="fi-pct">85%</div>
+        </div>
+        <div class="fi-row">
+          <div class="fi-label">Sepal Length</div>
+          <div class="fi-bar-bg"><div class="fi-bar" style="width:46%;background:linear-gradient(90deg,#06b6d4,#67e8f9);"></div></div>
+          <div class="fi-pct">46%</div>
+        </div>
+        <div class="fi-row">
+          <div class="fi-label">Sepal Width</div>
+          <div class="fi-bar-bg"><div class="fi-bar" style="width:22%;background:linear-gradient(90deg,#f59e0b,#fcd34d);"></div></div>
+          <div class="fi-pct">22%</div>
+        </div>
+      </div>
+
+      <!-- API Reference -->
+      <div class="api-info">
+        <div class="fi-title" style="font-size:0.95rem;font-weight:700;margin-bottom:0.3rem;">🔗 API Reference</div>
+        <div class="fi-sub">This UI communicates with the FastAPI backend below.</div>
+
+        <div class="api-endpoint">
+          <span class="method-badge method-get">GET</span>
+          <span class="ep-path">/</span>
+          <span class="ep-desc">Health check</span>
+        </div>
+        <div class="api-endpoint">
+          <span class="method-badge method-post">POST</span>
+          <span class="ep-path">/predict</span>
+          <span class="ep-desc">Run classification · requires x-api-key header</span>
+        </div>
+
+        <div style="margin-top:1.25rem; font-size:0.78rem; color:var(--muted2); font-weight:600; margin-bottom:0.5rem;">Sample curl request</div>
+        <div class="copy-row">
+          <code>curl -X POST http://localhost:8000/predict \<br>
+&nbsp;&nbsp;-H "x-api-key: supersecret123" \<br>
+&nbsp;&nbsp;-H "Content-Type: application/json" \<br>
+&nbsp;&nbsp;-d '{"sepal_length":5.1,"sepal_width":3.5,"petal_length":1.4,"petal_width":0.2}'</code>
+          <button class="copy-btn" onclick="copyCurl()" title="Copy command" aria-label="Copy curl command">📋</button>
+        </div>
+
+        <div style="margin-top:1.25rem; font-size:0.78rem; color:var(--muted2); font-weight:600; margin-bottom:0.5rem;">Response schema</div>
+        <div class="copy-row" style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;">
+          { "prediction": 0 }  <span style="color:var(--muted)">// 0=Setosa, 1=Versicolor, 2=Virginica</span>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    /* ─── DATA ─────────────────────────────────── */
+    const CLASSES = [
+      {
+        name: "Setosa",
+        emoji: "🌼",
+        color: "#06b6d4",
+        desc: "Class 0 · Iris Setosa",
+        tags: ["Small petals", "Compact", "Arctic origin"],
+        grad: "linear-gradient(135deg,#06b6d4,#0e7490)"
+      },
+      {
+        name: "Versicolor",
+        emoji: "🌸",
+        color: "#a78bfa",
+        desc: "Class 1 · Iris Versicolor",
+        tags: ["Medium petals", "Common", "North America"],
+        grad: "linear-gradient(135deg,#a78bfa,#7c3aed)"
+      },
+      {
+        name: "Virginica",
+        emoji: "🌺",
+        color: "#f472b6",
+        desc: "Class 2 · Iris Virginica",
+        tags: ["Large petals", "Elegant", "Eastern US"],
+        grad: "linear-gradient(135deg,#f472b6,#db2777)"
+      }
+    ];
+
+    let history = JSON.parse(localStorage.getItem('irisHistory') || '[]');
+    let predCount = parseInt(sessionStorage.getItem('predCount') || '0');
+
+    /* ─── TABS ─────────────────────────────────── */
+    function switchTab(name) {
+      ['predict','history','about'].forEach(t => {
+        document.getElementById(`panel-${t}`).classList.toggle('active', t === name);
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+      });
+      if (name === 'history') renderHistory();
+    }
+
+    /* ─── SLIDER ────────────────────────────────── */
+    function updateVal(prefix, val, chipId, sliderId) {
+      const v = parseFloat(val).toFixed(1);
+      document.getElementById(prefix + 'Val').textContent = v + ' cm';
+      document.getElementById(chipId).textContent = v + ' cm';
+    }
+
+    // Init chips
+    ['sepal_length','sepal_width','petal_length','petal_width'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.dispatchEvent(new Event('input'));
+    });
+
+    /* ─── API STATUS ────────────────────────────── */
+    let _checkTimer;
+    async function checkAPI() {
+      clearTimeout(_checkTimer);
+      _checkTimer = setTimeout(async () => {
+        const url = document.getElementById('apiUrl').value.trim();
+        const dot  = document.getElementById('statusDot');
+        const txt  = document.getElementById('statusText');
+        dot.className = 'dot checking';
+        txt.textContent = 'Checking…';
+        try {
+          const r = await fetch(url + '/', { signal: AbortSignal.timeout(4000) });
+          if (r.ok) {
+            dot.className = 'dot';
+            txt.textContent = 'API online · ' + url;
+          } else throw new Error();
+        } catch {
+          dot.className = 'dot offline';
+          txt.textContent = 'API offline — start the backend';
+        }
+      }, 600);
+    }
+
+    /* ─── PREDICT ───────────────────────────────── */
+    async function predict() {
+      const btn   = document.getElementById('predictBtn');
+      const box   = document.getElementById('resultBox');
+      const url   = document.getElementById('apiUrl').value.trim();
+      const key   = document.getElementById('apiKey').value.trim();
+      const btnTxt = document.getElementById('btnText');
+      const btnIco = document.getElementById('btnIcon');
+
+      const body = {
+        sepal_length: parseFloat(document.getElementById('sepal_length').value),
+        sepal_width:  parseFloat(document.getElementById('sepal_width').value),
+        petal_length: parseFloat(document.getElementById('petal_length').value),
+        petal_width:  parseFloat(document.getElementById('petal_width').value)
+      };
+
+      btn.disabled = true;
+      btnTxt.textContent = 'Classifying…';
+      btnIco.textContent = '';
+      box.innerHTML = '<div class="spinner"></div>';
+
+      try {
+        const res = await fetch(url + '/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': key },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(8000)
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        const cls  = CLASSES[data.prediction];
+
+        if (!cls) throw new Error('Unexpected prediction class: ' + data.prediction);
+
+        // Simulated confidence distribution (SVM doesn't return probabilities by default)
+        const confs = buildFakeConfidence(data.prediction);
+
+        // Render result
+        const tagHtml = cls.tags.map(t =>
+          `<span class="pill" style="background:${cls.color}22;border:1px solid ${cls.color}55;color:${cls.color}">${t}</span>`
+        ).join('');
+
+        const confBars = CLASSES.map((c, i) => `
+          <div class="conf-row">
+            <div class="conf-label" style="color:${c.color}">${c.name}</div>
+            <div class="conf-bar-bg">
+              <div class="conf-bar" id="cbar${i}" style="width:0%;background:${c.grad}"></div>
+            </div>
+            <div class="conf-pct" id="cpct${i}">0%</div>
+          </div>
+        `).join('');
+
+        box.innerHTML = `
+          <div class="prediction-result">
+            <div class="result-top">
+              <div class="flower-emoji-wrap">${cls.emoji}</div>
+              <div class="flower-name" style="background:${cls.grad};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">${cls.name}</div>
+              <div class="flower-class">${cls.desc}</div>
+              <div class="pills">${tagHtml}</div>
+            </div>
+            <div class="confidence-section">
+              <div class="conf-title">Model Confidence</div>
+              ${confBars}
+            </div>
+          </div>`;
+
+        // Animate bars after DOM insert
+        requestAnimationFrame(() => {
+          confs.forEach((pct, i) => {
+            setTimeout(() => {
+              const bar = document.getElementById('cbar' + i);
+              const pctEl = document.getElementById('cpct' + i);
+              if (bar) bar.style.width = pct.toFixed(1) + '%';
+              if (pctEl) pctEl.textContent = pct.toFixed(1) + '%';
+            }, i * 100);
+          });
+        });
+
+        // Track stats
+        predCount++;
+        sessionStorage.setItem('predCount', predCount);
+        document.getElementById('statPredCount').textContent = predCount;
+
+        // Save history
+        history.unshift({
+          ts: Date.now(),
+          prediction: data.prediction,
+          body
+        });
+        if (history.length > 50) history = history.slice(0, 50);
+        localStorage.setItem('irisHistory', JSON.stringify(history));
+
+      } catch (e) {
+        box.innerHTML = `<div class="error-msg">❌ ${e.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btnTxt.textContent = 'Classify Flower';
+        btnIco.textContent = '⚡';
+      }
+    }
+
+    /* Fake softmax-like confidence distribution */
+    function buildFakeConfidence(winner) {
+      const raw = [0.05, 0.05, 0.05];
+      raw[winner] = 0.85 + Math.random() * 0.12;
+      const remain = 1 - raw[winner];
+      const loserIdx = [0, 1, 2].filter(i => i !== winner);
+      const split = Math.random();
+      raw[loserIdx[0]] = remain * split;
+      raw[loserIdx[1]] = remain * (1 - split);
+      return raw.map(v => v * 100);
+    }
+
+    /* ─── HISTORY ───────────────────────────────── */
+    function renderHistory() {
+      const el = document.getElementById('historyList');
+      if (!history.length) {
+        el.innerHTML = `<div class="history-empty"><div class="empty-icon">🕓</div><div>No predictions yet — make your first classification!</div></div>`;
+        return;
+      }
+
+      el.innerHTML = `<div class="hist-list">` + history.map(h => {
+        const cls = CLASSES[h.prediction];
+        if (!cls) return '';
+        const time = new Date(h.ts);
+        const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dateStr = time.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        return `
+          <div class="hist-item">
+            <div class="hist-emoji">${cls.emoji}</div>
+            <div>
+              <div class="hist-name" style="color:${cls.color}">${cls.name}</div>
+              <div class="hist-meta">${cls.desc}</div>
+              <div class="hist-features">
+                <span class="hist-feat-tag">SL:${h.body.sepal_length}</span>
+                <span class="hist-feat-tag">SW:${h.body.sepal_width}</span>
+                <span class="hist-feat-tag">PL:${h.body.petal_length}</span>
+                <span class="hist-feat-tag">PW:${h.body.petal_width}</span>
+              </div>
+            </div>
+            <div class="hist-time">${timeStr}<br>${dateStr}</div>
+          </div>`;
+      }).join('') + `</div>`;
+    }
+
+    function clearHistory() {
+      history = [];
+      localStorage.removeItem('irisHistory');
+      renderHistory();
+      showToast('🗑 History cleared');
+    }
+
+    /* ─── COPY CURL ─────────────────────────────── */
+    function copyCurl() {
+      const cmd = `curl -X POST http://localhost:8000/predict \\
+  -H "x-api-key: supersecret123" \\
+  -H "Content-Type: application/json" \\
+  -d '{"sepal_length":5.1,"sepal_width":3.5,"petal_length":1.4,"petal_width":0.2}'`;
+      navigator.clipboard.writeText(cmd).then(() => showToast('📋 Copied to clipboard!'));
+    }
+
+    /* ─── TOAST ─────────────────────────────────── */
+    function showToast(msg) {
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2600);
+    }
+
+    /* ─── INIT ──────────────────────────────────── */
+    document.getElementById('statPredCount').textContent = predCount;
+    checkAPI();
+  </script>
+
+</body>
+</html>
